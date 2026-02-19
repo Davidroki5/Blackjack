@@ -1,181 +1,311 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
 <meta charset="UTF-8">
-<title>Blackjack Game</title>
+<title>Final Boss Vegas Blackjack</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
 <style>
-body {
-  font-family: Arial, sans-serif;
-  background: #0f172a;
-  color: white;
-  text-align: center;
-  margin: 0;
-  padding: 20px;
+body{
+  margin:0;
+  font-family:Segoe UI;
+  background:black;
+  color:gold;
+  text-align:center;
+  overflow:hidden;
 }
 
-h1 { margin-bottom: 10px; }
-
-.game-box {
-  background: #1e293b;
-  padding: 20px;
-  border-radius: 12px;
-  max-width: 500px;
-  margin: auto;
-  box-shadow: 0 0 20px rgba(0,0,0,0.5);
+/* INTRO */
+#intro{
+  position:fixed;
+  inset:0;
+  background:black;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  font-size:40px;
+  animation:fadeOut 4s forwards 3s;
 }
 
-.cards {
-  margin: 10px 0;
-  font-size: 20px;
+@keyframes fadeOut{
+  to{opacity:0;visibility:hidden;}
 }
 
-button {
-  padding: 10px 20px;
-  margin: 5px;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: bold;
+/* TABLE */
+.table{
+  margin:20px auto;
+  padding:20px;
+  max-width:1000px;
+  border-radius:30px;
+  background:radial-gradient(circle,#0b3d2e,#021a13);
+  border:5px solid gold;
 }
 
-.hit { background: #22c55e; }
-.stand { background: #ef4444; }
-.restart { background: #3b82f6; }
+.cards{ perspective:1000px; }
 
-button:hover { opacity: 0.8; }
+.card{
+  width:70px;
+  height:110px;
+  display:inline-block;
+  margin:6px;
+  transform-style:preserve-3d;
+  transition:transform 0.8s;
+}
 
-#message {
-  margin-top: 15px;
-  font-size: 18px;
+.card.flip{ transform:rotateY(180deg); }
+
+.face{
+  position:absolute;
+  width:70px;
+  height:110px;
+  border-radius:12px;
+  backface-visibility:hidden;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  font-weight:bold;
+}
+
+.front{ background:white; color:black; }
+.back{ background:#333; color:white; transform:rotateY(180deg); }
+.red{ color:red; }
+
+button{
+  padding:8px 16px;
+  margin:4px;
+  border:none;
+  border-radius:8px;
+  background:gold;
+  color:black;
+  font-weight:bold;
+}
+
+#leaderboard{
+  margin-top:20px;
+  background:#111;
+  padding:10px;
+  border-radius:10px;
 }
 </style>
 </head>
 <body>
 
-<h1>🃏 Blackjack</h1>
+<div id="intro">♠ WELCOME TO FINAL BOSS VEGAS ♥</div>
 
-<div class="game-box">
-  <div>
-    <h3>Your Hand</h3>
-    <div id="player-cards" class="cards"></div>
-    <div id="player-score"></div>
-  </div>
+<h2>Final Boss Blackjack</h2>
 
-  <div>
-    <h3>Dealer</h3>
-    <div id="dealer-cards" class="cards"></div>
-    <div id="dealer-score"></div>
-  </div>
+<div class="table">
 
-  <div>
-    <button class="hit" onclick="hit()">Hit</button>
-    <button class="stand" onclick="stand()">Stand</button>
-    <button class="restart" onclick="startGame()">Restart</button>
-  </div>
-
-  <div id="message"></div>
+<div>
+<input id="username" placeholder="Enter name">
+<button onclick="login()">Login</button>
 </div>
 
-<script>
-let deck = [];
-let player = [];
-let dealer = [];
-let gameOver = false;
+<h3>Balance: $<span id="balance">1000</span></h3>
+<h3>Bet: $<span id="bet">0</span></h3>
 
-const cardValues = {
-  "2":2,"3":3,"4":4,"5":5,"6":6,
-  "7":7,"8":8,"9":9,"10":10,
-  "J":10,"Q":10,"K":10,"A":11
+<button onclick="addBet(50)">+50</button>
+<button onclick="deal()">Deal</button>
+<button onclick="hit()">Hit</button>
+<button onclick="stand()">Stand</button>
+
+<h3>Dealer</h3>
+<div id="dealer" class="cards"></div>
+<div id="dealer-score"></div>
+
+<h3>Player</h3>
+<div id="player" class="cards"></div>
+<div id="player-score"></div>
+
+<div id="message"></div>
+
+<div id="leaderboard">
+<h3>🏆 Global Leaderboard</h3>
+<ul id="scores"></ul>
+</div>
+
+</div>
+
+<!-- FIREBASE -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js"></script>
+
+<script>
+// 🔥 REPLACE WITH YOUR FIREBASE CONFIG
+const firebaseConfig = {
+  apiKey: "YOUR_KEY",
+  authDomain: "YOUR_DOMAIN",
+  databaseURL: "YOUR_DB_URL",
+  projectId: "YOUR_ID",
 };
 
-function createDeck() {
-  const cards = Object.keys(cardValues);
-  deck = [];
-  for (let i = 0; i < 4; i++) {
-    deck = deck.concat(cards);
-  }
-  deck.sort(() => Math.random() - 0.5);
-}
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
 
-function dealCard() {
-  return deck.pop();
-}
+/* GAME LOGIC */
+let suits=["♠","♥","♦","♣"];
+let values=["2","3","4","5","6","7","8","9","10","J","Q","K","A"];
+let deck=[], player=[], dealer=[];
+let balance=1000, bet=0, gameOver=true;
+let currentUser="";
 
-function calculateScore(hand) {
-  let score = 0;
-  let aces = 0;
-
-  hand.forEach(card => {
-    score += cardValues[card];
-    if (card === "A") aces++;
+function login(){
+  currentUser=document.getElementById("username").value;
+  db.ref("players/"+currentUser).once("value",snap=>{
+    if(snap.exists()){
+      balance=snap.val().balance;
+    }
+    updateUI();
   });
-
-  while (score > 21 && aces > 0) {
-    score -= 10;
-    aces--;
-  }
-
-  return score;
 }
 
-function updateUI(revealDealer=false) {
-  document.getElementById("player-cards").textContent = player.join(" ");
-  document.getElementById("player-score").textContent = "Score: " + calculateScore(player);
-
-  if (revealDealer) {
-    document.getElementById("dealer-cards").textContent = dealer.join(" ");
-    document.getElementById("dealer-score").textContent = "Score: " + calculateScore(dealer);
-  } else {
-    document.getElementById("dealer-cards").textContent = dealer[0] + " ?";
-    document.getElementById("dealer-score").textContent = "";
+function savePlayer(){
+  if(currentUser){
+    db.ref("players/"+currentUser).set({balance});
   }
 }
 
-function hit() {
-  if (gameOver) return;
+function createDeck(){
+  deck=[];
+  for(let s of suits){
+    for(let v of values){
+      deck.push({v,s});
+    }
+  }
+  deck.sort(()=>Math.random()-0.5);
+}
 
-  player.push(dealCard());
-  updateUI();
+function val(c){
+  if(["J","Q","K"].includes(c.v)) return 10;
+  if(c.v==="A") return 11;
+  return parseInt(c.v);
+}
 
-  if (calculateScore(player) > 21) {
-    document.getElementById("message").textContent = "You busted! Dealer wins.";
-    gameOver = true;
+function score(h){
+  let t=0,a=0;
+  h.forEach(c=>{t+=val(c); if(c.v==="A")a++;});
+  while(t>21&&a>0){t-=10;a--;}
+  return t;
+}
+
+function render(hand,id){
+  let el=document.getElementById(id);
+  el.innerHTML="";
+  hand.forEach(c=>{
+    let card=document.createElement("div");
+    card.className="card flip";
+
+    let front=document.createElement("div");
+    front.className="face front";
+    if(c.s==="♥"||c.s==="♦") front.classList.add("red");
+    front.textContent=c.v+c.s;
+
+    let back=document.createElement("div");
+    back.className="face back";
+    back.textContent="♠";
+
+    card.appendChild(front);
+    card.appendChild(back);
+    el.appendChild(card);
+  });
+}
+
+function updateUI(){
+  render(player,"player");
+  render(dealer,"dealer");
+  document.getElementById("player-score").textContent="Score: "+score(player);
+  document.getElementById("dealer-score").textContent="Score: "+score(dealer);
+  document.getElementById("balance").textContent=balance;
+  document.getElementById("bet").textContent=bet;
+}
+
+function addBet(a){
+  if(gameOver && balance>=a){
+    bet+=a;
+    balance-=a;
+    updateUI();
   }
 }
 
-function stand() {
-  if (gameOver) return;
-
-  while (calculateScore(dealer) < 17) {
-    dealer.push(dealCard());
-  }
-
-  let playerScore = calculateScore(player);
-  let dealerScore = calculateScore(dealer);
-
-  updateUI(true);
-
-  if (dealerScore > 21 || playerScore > dealerScore) {
-    document.getElementById("message").textContent = "You win! 🎉";
-  } else if (playerScore < dealerScore) {
-    document.getElementById("message").textContent = "Dealer wins.";
-  } else {
-    document.getElementById("message").textContent = "It's a draw!";
-  }
-
-  gameOver = true;
-}
-
-function startGame() {
+function deal(){
+  if(bet<=0)return;
   createDeck();
-  player = [dealCard(), dealCard()];
-  dealer = [dealCard(), dealCard()];
-  gameOver = false;
-  document.getElementById("message").textContent = "";
+  player=[deck.pop(),deck.pop()];
+  dealer=[deck.pop(),deck.pop()];
+  gameOver=false;
   updateUI();
 }
 
-startGame();
+function hit(){
+  if(gameOver)return;
+  player.push(deck.pop());
+  updateUI();
+  if(score(player)>21)end();
+}
+
+function stand(){
+  if(gameOver)return;
+  while(score(dealer)<17){
+    dealer.push(deck.pop());
+  }
+  end();
+}
+
+function end(){
+  gameOver=true;
+  let ps=score(player), ds=score(dealer);
+
+  if(ps===21&&player.length===2){
+    balance+=bet*2.5;
+    confetti();
+  }
+  else if(ps>21){}
+  else if(ds>21||ps>ds){
+    balance+=bet*2;
+    confetti();
+  }
+  else if(ps===ds){
+    balance+=bet;
+  }
+
+  bet=0;
+  savePlayer();
+  updateLeaderboard();
+  updateUI();
+}
+
+/* CONFETTI */
+function confetti(){
+  for(let i=0;i<100;i++){
+    let div=document.createElement("div");
+    div.style.position="fixed";
+    div.style.width="6px";
+    div.style.height="6px";
+    div.style.background="gold";
+    div.style.top=Math.random()*window.innerHeight+"px";
+    div.style.left=Math.random()*window.innerWidth+"px";
+    div.style.animation="fall 2s linear";
+    document.body.appendChild(div);
+    setTimeout(()=>div.remove(),2000);
+  }
+}
+
+db.ref("players").on("value",snap=>{
+  let ul=document.getElementById("scores");
+  ul.innerHTML="";
+  let data=snap.val();
+  if(!data)return;
+  let arr=Object.entries(data).sort((a,b)=>b[1].balance-a[1].balance).slice(0,5);
+  arr.forEach(p=>{
+    let li=document.createElement("li");
+    li.textContent=p[0]+" - $"+p[1].balance;
+    ul.appendChild(li);
+  });
+});
+
+function updateLeaderboard(){
+  savePlayer();
+}
 </script>
 
 </body>
