@@ -3,246 +3,215 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Vegas Blackjack</title>
+<title>Blackjack: Ultimate God Mode</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&display=swap" rel="stylesheet">
+
 <style>
-  body {
-    margin: 0;
-    font-family: 'Segoe UI', sans-serif;
-    background: radial-gradient(circle, #111, #000);
-    color: gold;
-    text-align: center;
-    overflow-x: hidden;
-  }
+*{margin:0;padding:0;box-sizing:border-box;}
+body{
+  font-family:'Cinzel', serif;
+  background:#02140a;
+  color:white;
+  overflow:hidden;
+}
 
-  h1 {
-    margin-top: 20px;
-    text-shadow: 0 0 20px gold;
-  }
+/* Gold particles background */
+body::before{
+  content:"";
+  position:fixed;
+  inset:0;
+  background:
+    radial-gradient(circle at 20% 30%, rgba(255,215,0,0.08) 0%, transparent 40%),
+    radial-gradient(circle at 80% 70%, rgba(255,215,0,0.08) 0%, transparent 40%);
+  z-index:-1;
+}
 
-  .table {
-    margin: 20px auto;
-    padding: 20px;
-    max-width: 1000px;
-    border-radius: 30px;
-    background: radial-gradient(circle, #0b3d2e, #021a13);
-    border: 5px solid gold;
-  }
+/* Table */
+#table{
+  position:absolute;
+  bottom:0;
+  width:100%;
+  height:80vh;
+  background:radial-gradient(circle at center,#0b5d2a 0%,#063818 70%);
+  border-top:4px solid gold;
+  border-radius:200px 200px 0 0;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:space-between;
+  padding:20px;
+  box-shadow:0 0 60px black inset;
+}
 
-  .cards { perspective: 1000px; min-height: 120px; }
+/* Hands */
+.hand{
+  display:flex;
+  gap:15px;
+  perspective:1000px;
+}
 
-  .card {
-    width: 70px;
-    height: 110px;
-    display: inline-block;
-    margin: 6px;
-    transform-style: preserve-3d;
-    transition: transform 0.8s;
-  }
+/* Cards */
+.card{
+  width:90px;
+  height:130px;
+  position:relative;
+  transform-style:preserve-3d;
+  transition:transform .8s;
+}
+.card.flip{transform:rotateY(180deg);}
+.card-face{
+  position:absolute;
+  width:100%;
+  height:100%;
+  backface-visibility:hidden;
+  border-radius:10px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:28px;
+}
+.front{background:white;color:black;}
+.back{background:#111;transform:rotateY(180deg);}
 
-  .card.flip { transform: rotateY(180deg); }
+/* Chips */
+#chips{
+  display:flex;
+  gap:15px;
+}
+.chip{
+  width:60px;height:60px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-weight:bold;cursor:pointer;transition:.3s;
+}
+.chip:hover{transform:scale(1.1);}
+.red{background:#b30000;}
+.blue{background:#0044cc;}
+.green{background:#008000;}
+.black{background:#111;}
 
-  .face {
-    position: absolute;
-    width: 70px;
-    height: 110px;
-    border-radius: 12px;
-    backface-visibility: hidden;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    font-weight: bold;
-  }
+/* HUD */
+#hud{position:absolute;top:20px;left:20px;}
+#jackpot{position:absolute;top:20px;right:20px;color:gold;font-size:20px;}
+#vip{position:absolute;top:60px;left:20px;color:gold;font-size:20px;}
 
-  .front { background: white; color: black; }
-  .back { background: #333; color: white; transform: rotateY(180deg); }
-  .red { color: red; }
-
-  button {
-    padding: 8px 16px;
-    margin: 4px;
-    border: none;
-    border-radius: 8px;
-    background: gold;
-    color: black;
-    font-weight: bold;
-    cursor: pointer;
-  }
-
-  #leaderboard {
-    margin-top: 20px;
-    background: #111;
-    padding: 10px;
-    border-radius: 10px;
-  }
+/* Jackpot wheel overlay */
+#jackpotWheel{
+  position:fixed;inset:0;
+  display:flex;justify-content:center;align-items:center;
+  background:rgba(0,0,0,0.9);
+  z-index:999;
+  display:none;
+}
+#wheel{
+  width:300px;height:300px;border-radius:50%;
+  border:10px solid gold;
+  background:conic-gradient(gold 0deg 90deg,#222 90deg 180deg,gold 180deg 270deg,#222 270deg 360deg);
+  transition:transform 4s cubic-bezier(.17,.67,.15,.99);
+}
 </style>
 </head>
+
 <body>
 
-<h1>♠ Vegas Blackjack ♥</h1>
+<!-- HUD -->
+<div id="hud">
+  Money: $<span id="money">1000</span><br>
+  VIP: <span id="vip">Bronze</span>
+</div>
+<div id="jackpot">
+  Progressive Jackpot: $<span id="jackpotAmount">5000</span>
+</div>
 
-<div class="table">
+<!-- Table -->
+<div id="table">
   <div>
-    <input id="username" placeholder="Enter name">
-    <button onclick="login()">Login</button>
+    <h2>Dealer</h2>
+    <div class="hand" id="dealer-hand"></div>
   </div>
 
-  <h3>Balance: $<span id="balance">1000</span></h3>
-  <h3>Bet: $<span id="bet">0</span></h3>
+  <div>
+    <h2>You</h2>
+    <div class="hand" id="player-hand"></div>
+  </div>
 
-  <button onclick="addBet(50)">+50</button>
-  <button onclick="deal()">Deal</button>
-  <button onclick="hit()">Hit</button>
-  <button onclick="stand()">Stand</button>
+  <div id="chips">
+    <div class="chip red" onclick="placeBet(5)">$5</div>
+    <div class="chip blue" onclick="placeBet(25)">$25</div>
+    <div class="chip green" onclick="placeBet(100)">$100</div>
+    <div class="chip black" onclick="placeBet(500)">$500</div>
+  </div>
 
-  <h3>Dealer</h3>
-  <div id="dealer" class="cards"></div>
-  <div id="dealer-score"></div>
-
-  <h3>Player</h3>
-  <div id="player" class="cards"></div>
-  <div id="player-score"></div>
-
-  <div id="message"></div>
-
-  <div id="leaderboard">
-    <h3>🏆 Leaderboard</h3>
-    <ul id="scores"></ul>
+  <div>
+    <button onclick="startRound()">Deal</button>
+    <button onclick="hit()">Hit</button>
+    <button onclick="stand()">Stand</button>
   </div>
 </div>
 
+<!-- Jackpot Wheel -->
+<div id="jackpotWheel">
+  <div id="wheel"></div>
+</div>
+
+<!-- Audio -->
+<audio id="hitSound" src="hit.mp3"></audio>
+<audio id="winSound" src="win.mp3"></audio>
+<audio id="jackpotSound" src="jackpot.mp3"></audio>
+<audio id="ambience" loop src="casino-ambience.mp3"></audio>
+
 <script>
-  // ======= Game State =======
-  let suits = ["♠","♥","♦","♣"];
-  let values = ["2","3","4","5","6","7","8","9","10","J","Q","K","A"];
-  let deck = [], player = [], dealer = [];
-  let balance = 1000, bet = 0;
-  let gameOver = true;
-  let currentUser = "";
-  let dealerHidden = true;
+// 💰 Core Game Variables
+let money=1000,jackpot=5000,currentBet=0;
+let deck=[],playerHand=[],dealerHand=[],gameActive=false;
+let hitSoft17=true;
 
-  // ======= Login =======
-  function login(){
-    currentUser = document.getElementById("username").value.trim();
-    if(!currentUser) return alert("Enter a name");
-    document.getElementById("message").textContent = "Welcome "+currentUser+"!";
-  }
+// 💾 Auto Save
+function saveGame(){localStorage.setItem("blackjackSave",JSON.stringify({money,jackpot,vip:document.getElementById("vip").textContent}));}
+function loadGame(){let data=localStorage.getItem("blackjackSave");if(data){let s=JSON.parse(data);money=s.money;jackpot=s.jackpot;document.getElementById("vip").textContent=s.vip;updateUI();}}
+loadGame();
 
-  // ======= Deck =======
-  function createDeck(){
-    deck = [];
-    for(let s of suits){
-      for(let v of values){
-        deck.push({v,s});
-      }
-    }
-    deck.sort(()=>Math.random()-0.5);
-  }
+// 🎵 Sound helper
+function playSound(type){if(type==="hit")document.getElementById("hitSound").play();if(type==="win")document.getElementById("winSound").play();if(type==="jackpot")document.getElementById("jackpotSound").play();}
 
-  function val(c){
-    if(["J","Q","K"].includes(c.v)) return 10;
-    if(c.v==="A") return 11;
-    return parseInt(c.v);
-  }
+// 🃏 Deck System
+const suits=["♠","♥","♦","♣"];
+const values=[{name:"A",val:11},{name:"2",val:2},{name:"3",val:3},{name:"4",val:4},{name:"5",val:5},{name:"6",val:6},{name:"7",val:7},{name:"8",val:8},{name:"9",val:9},{name:"10",val:10},{name:"J",val:10},{name:"Q",val:10},{name:"K",val:10}];
+function buildDeck(){deck=[];for(let s of suits){for(let v of values){deck.push({suit:s,name:v.name,value:v.val});}}shuffle(deck);}
+function shuffle(array){for(let i=array.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[array[i],array[j]]=[array[j],array[i]];}}
+function drawCard(){return deck.pop();}
 
-  function score(hand){
-    let total=0, aces=0;
-    hand.forEach(c=>{ total+=val(c); if(c.v==="A") aces++; });
-    while(total>21 && aces>0){ total-=10; aces--; }
-    return total;
-  }
+// 🧮 Hand Value
+function getHandValue(hand){let total=0,aces=0;for(let c of hand){total+=c.value;if(c.name==="A")aces++;}while(total>21&&aces>0){total-=10;aces--;}return total;}
 
-  // ======= Render =======
-  function render(hand,id,hideFirst=false){
-    let el=document.getElementById(id);
-    el.innerHTML="";
-    hand.forEach((c,i)=>{
-      let card = document.createElement("div");
-      card.className = "card flip";
+// 🖼️ Render Cards
+function renderHand(hand,id,hideFirst=false){const container=document.getElementById(id);container.innerHTML="";hand.forEach((card,i)=>{const cd=document.createElement("div");cd.className="card";const f=document.createElement("div");f.className="card-face front";f.textContent=(hideFirst&&i===0)?"":card.name+card.suit;const b=document.createElement("div");b.className="card-face back";cd.appendChild(f);cd.appendChild(b);if(!hideFirst||i!==0){setTimeout(()=>cd.classList.add("flip"),100);}container.appendChild(cd);});}
 
-      let front = document.createElement("div");
-      front.className = "face front";
-      if(c.s==="♥"||c.s==="♦") front.classList.add("red");
-      front.textContent = (hideFirst && i===0) ? "?" : c.v+c.s;
+// 💰 Betting
+function placeBet(a){if(gameActive)return;if(money>=a){currentBet+=a;money-=a;jackpot+=a*0.05;updateUI();}}
 
-      let back = document.createElement("div");
-      back.className = "face back";
-      back.textContent = "♠";
+// 🎮 Game Flow
+function startRound(){if(currentBet===0||gameActive)return;gameActive=true;buildDeck();playerHand=[];dealerHand=[];playerHand.push(drawCard());dealerHand.push(drawCard());playerHand.push(drawCard());dealerHand.push(drawCard());renderHand(playerHand,"player-hand");renderHand(dealerHand,"dealer-hand",true);checkBlackjack();playSound("hit");}
+function checkBlackjack(){let p=getHandValue(playerHand);if(p===21)endGame();}
 
-      card.appendChild(front);
-      card.appendChild(back);
-      el.appendChild(card);
-    });
-  }
+// 🎯 Player Actions
+function hit(){if(!gameActive)return;playerHand.push(drawCard());renderHand(playerHand,"player-hand");playSound("hit");if(getHandValue(playerHand)>21)endGame();}
+function stand(){dealerTurn();}
 
-  function updateUI(){
-    render(player,"player");
-    render(dealer,"dealer", dealerHidden);
-    document.getElementById("player-score").textContent = "Score: "+score(player);
-    document.getElementById("dealer-score").textContent = dealerHidden ? "Score: ?" : "Score: "+score(dealer);
-    document.getElementById("balance").textContent = balance;
-    document.getElementById("bet").textContent = bet;
-  }
+// 🧠 Dealer AI
+function dealerTurn(){renderHand(dealerHand,"dealer-hand",false);let interval=setInterval(()=>{let total=getHandValue(dealerHand);let soft=isSoft(dealerHand);if(total<17||(hitSoft17&&total===17&&soft)){dealerHand.push(drawCard());renderHand(dealerHand,"dealer-hand");playSound("hit");}else{clearInterval(interval);endGame();}},800);}
+function isSoft(hand){let total=0,aces=0;for(let c of hand){total+=c.value;if(c.name==="A")aces++;}return aces>0&&total<=21;}
 
-  // ======= Betting =======
-  function addBet(amount){
-    if(!gameOver) return;
-    if(balance>=amount){
-      bet += amount;
-      balance -= amount;
-      updateUI();
-    }
-  }
+// 🏁 End Game
+function endGame(){gameActive=false;let p=getHandValue(playerHand),d=getHandValue(dealerHand);renderHand(dealerHand,"dealer-hand",false);if(p>21){}else if(d>21||p>d)winPayout(p===21&&playerHand.length===2);else if(p===d)money+=currentBet;currentBet=0;updateUI();saveGame();}
+function winPayout(blackjack){money+=blackjack?currentBet*2.5:currentBet*2;jackpotTrigger();playSound("win");}
 
-  // ======= Deal =======
-  function deal(){
-    if(bet<=0 || !gameOver) return;
-    createDeck();
-    player=[deck.pop(),deck.pop()];
-    dealer=[deck.pop(),deck.pop()];
-    dealerHidden = true;
-    gameOver=false;
-    updateUI();
-    document.getElementById("message").textContent="Your move...";
-    if(score(player)===21) setTimeout(stand,500);
-  }
+// 🎡 Jackpot
+function jackpotTrigger(){if(Math.random()<0.05){spinWheel();}}
+function spinWheel(){const w=document.getElementById("wheel");document.getElementById("jackpotWheel").style.display="flex";let amt=3600+Math.floor(Math.random()*360);w.style.transform="rotate("+amt+"deg)";setTimeout(()=>{money+=jackpot;jackpot=5000;updateUI();document.getElementById("jackpotWheel").style.display="none";playSound("jackpot");},4000);}
 
-  // ======= Hit =======
-  function hit(){
-    if(gameOver) return;
-    player.push(deck.pop());
-    updateUI();
-    if(score(player)>21){
-      document.getElementById("message").textContent="💥 Bust!";
-      endGame();
-    }
-  }
-
-  // ======= Stand =======
-  function stand(){
-    if(gameOver) return;
-    dealerHidden=false;
-    updateUI();
-    while(score(dealer)<17){ dealer.push(deck.pop()); }
-    endGame();
-  }
-
-  // ======= End Game =======
-  function endGame(){
-    gameOver=true;
-    dealerHidden=false;
-    let ps=score(player), ds=score(dealer);
-    let message="";
-    if(ps===21 && player.length===2){ balance += bet*2.5; message="💎 BLACKJACK!"; }
-    else if(ps>21){ message="Dealer wins."; }
-    else if(ds>21 || ps>ds){ balance += bet*2; message="🎉 You win!"; }
-    else if(ps===ds){ balance += bet; message="Push."; }
-    else{ message="Dealer wins."; }
-    bet=0;
-    document.getElementById("message").textContent = message;
-    updateUI();
-  }
-
-  updateUI();
+// UI
+function updateUI(){document.getElementById("money").textContent=Math.floor(money);document.getElementById("jackpotAmount").textContent=Math.floor(jackpot);}
 </script>
 
 </body>
